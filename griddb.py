@@ -1,10 +1,9 @@
 import requests
 import re
-from requests.auth import HTTPBasicAuth
 
+from requests.auth import HTTPBasicAuth
 from redash.query_runner import BaseSQLQueryRunner, register
 from redash.utils import json_dumps
-
 from redash.query_runner import TYPE_STRING, TYPE_DATETIME, \
     TYPE_INTEGER, TYPE_FLOAT, TYPE_BOOLEAN
 
@@ -74,33 +73,32 @@ class GridDB(BaseSQLQueryRunner):
     def name(cls):
         return "GridDB"
 
+    def request_url(self, action):
+        s = "http://{host}:{post}/griddb/v2/{cluster}/dbs/{database}/{action}"
+        url = s.format(host=self.configuration['host'],
+                       post=self.configuration['port'],
+                       cluster=self.configuration['cluster'],
+                       database=self.configuration['database'],
+                       action=action)
+        return url
+
     def test_connection(self):
-        host = self.configuration['host']
-        port = self.configuration['port']
-        cluster = self.configuration['cluster']
-        database = self.configuration['database']
-        username = self.configuration['username']
-        password = self.configuration['password']
+        url = self.request_url('checkConnection')
+        auth = HTTPBasicAuth(self.configuration['username'],
+                             self.configuration['password'])
         headers = {'Content-Type': 'application/json'}
-        url = 'http://' + str(host) + ':' + str(port) + '/griddb/v2/' + \
-              str(cluster) + '/dbs/' + str(database) + '/checkConnection'
-        response = requests.get(url, headers=headers,
-                                auth=HTTPBasicAuth(username, password))
+        response = requests.get(url,
+                                headers=headers,
+                                auth=auth)
         if response.status_code != 200:
             raise Exception("Failed to connect to database.")
 
     # Execute TQL
     def run_query(self, query, user):
-        host = self.configuration['host']
-        port = self.configuration['port']
-        cluster = self.configuration['cluster']
-        database = self.configuration['database']
-        username = self.configuration['username']
-        password = self.configuration['password']
-
         # Send request to WebAPI
-        url = 'http://' + str(host) + ':' + str(port) + '/griddb/v2/' + \
-              str(cluster) + '/dbs/' + str(database) + '/tql'
+        url = self.request_url('tql')
+        auth = HTTPBasicAuth(self.configuration['username'],
+                             self.configuration['password'])
         headers = {'Content-Type': 'application/json'}
         body = []
         gw_tql_input = {}
@@ -112,9 +110,7 @@ class GridDB(BaseSQLQueryRunner):
         gw_tql_input['name'] = container_name
         gw_tql_input['stmt'] = query
         body.append(gw_tql_input)
-        response = requests.post(url, headers=headers,
-                                 auth=HTTPBasicAuth(username, password),
-                                 json=body)
+        response = requests.post(url, headers=headers, auth=auth, json=body)
         if response.status_code == 200:
             columns = self.fetch_columns(
                 [(i[u'name'],
@@ -135,25 +131,20 @@ class GridDB(BaseSQLQueryRunner):
 
     # Get schema of all containers
     def _get_tables(self, schema):
-        host = self.configuration['host']
-        port = self.configuration['port']
-        cluster = self.configuration['cluster']
-        database = self.configuration['database']
-        username = self.configuration['username']
-        password = self.configuration['password']
+        auth = HTTPBasicAuth(self.configuration['username'],
+                             self.configuration['password'])
         headers = {'Content-Type': 'application/json'}
 
         # Maximum total containers
         maximum_total_containers = 5000
 
         # Get list of containers
-        get_list_containers_url = 'http://' + str(host) + ':' + str(port) + \
-                                  '/griddb/v2/' + str(cluster) + '/dbs/' + \
-                                  database + '/containers/'
+        get_list_containers_url = self.request_url('containers')
+
         get_list_containers_response = requests.get(
             get_list_containers_url,
             headers=headers,
-            auth=HTTPBasicAuth(username, password),
+            auth=auth,
             params={'limit': maximum_total_containers})
         if get_list_containers_response.status_code == 200:
             list_containers = get_list_containers_response.json()['names']
@@ -162,11 +153,8 @@ class GridDB(BaseSQLQueryRunner):
 
         for container in list_containers:
             # Get container info of each container
-            url = 'http://' + str(host) + ':' + str(port) + '/griddb/v2/' + \
-                  cluster + '/dbs/' + database + \
-                  '/containers/' + container + '/info'
-            response = requests.get(url, headers=headers,
-                                    auth=HTTPBasicAuth(username, password))
+            url = get_list_containers_url + '/' + container + '/info'
+            response = requests.get(url, headers=headers, auth=auth)
             if response.status_code == 200:
                 container_info = {}
                 container_name = response.json()['container_name']
