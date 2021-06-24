@@ -1,5 +1,4 @@
 import requests
-import re
 
 from requests.auth import HTTPBasicAuth
 from redash.query_runner import BaseSQLQueryRunner, register
@@ -93,23 +92,18 @@ class GridDB(BaseSQLQueryRunner):
         if response.status_code != 200:
             raise Exception("Failed to connect to database.")
 
-    # Execute TQL
+    # Execute SQL
     def run_query(self, query, user):
         # Send request to WebAPI
-        url = self.request_url('tql')
+        url = self.request_url('sql')
         auth = HTTPBasicAuth(self.configuration['username'],
                              self.configuration['password'])
         headers = {'Content-Type': 'application/json'}
         body = []
-        gw_tql_input = {}
-
-        # Extract container name from query
-        pattern = r'from\s+(\w+).*'
-        container_names = re.findall(pattern, query, re.IGNORECASE)
-        container_name = container_names[0]
-        gw_tql_input['name'] = container_name
-        gw_tql_input['stmt'] = query
-        body.append(gw_tql_input)
+        gw_sql_input = {}
+        gw_sql_input['type'] = 'sql-select'
+        gw_sql_input['stmt'] = query
+        body.append(gw_sql_input)
         response = requests.post(url, headers=headers, auth=auth, json=body)
         if response.status_code == 200:
             columns = self.fetch_columns(
