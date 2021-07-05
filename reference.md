@@ -67,7 +67,7 @@ From main menu, click **Create**/**Query** to create a new query
 
 <span class="anchor" text-align="center"></span>Figure 3: Create query
 
-- GridDB Plugin supports **TQL** as queries
+- GridDB Plugin supports **SQL Select** as queries
 - GridDB Plugin supports **auto-complete** for queries
 - Once a query is saved, it should be **published** to visualize in dashboard
 
